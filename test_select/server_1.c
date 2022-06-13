@@ -95,10 +95,7 @@ int main(int argc, char** argv) {
                         Close(fd);
                         FD_CLR(fd, &all_rset);
                         clients[i] = -1;
-                        printf("client closed    -- ip : %s port : %d\n", 
-                            inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip, sizeof(client_ip)),
-                            ntohs(client_addr.sin_port)
-                        );
+                        printf("client closed\n");
                     } else if (read_bytes > 0) {
                         Write(STDOUT_FILENO, buf, read_bytes); 
                         for (int j = 0; j < read_bytes; ++ j) {

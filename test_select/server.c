@@ -69,10 +69,7 @@ int main(int argc, char** argv) {
                     read_bytes = Read(fd, (void*)&buf, sizeof(buf));
                     if (read_bytes == 0) { // client关闭了
                         Close(fd);
-                        printf("client closed    -- ip : %s port : %d\n", 
-                            inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip, sizeof(client_ip)),
-                            ntohs(client_addr.sin_port)
-                        );
+                        printf("client closed\n");
                         FD_CLR(fd, &all_rset); // 不需要再监听了
                     } else if (read_bytes > 0) { // 读到数据 处理
                         Write(STDOUT_FILENO, buf, read_bytes); // print

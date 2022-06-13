@@ -88,10 +88,7 @@ int main(int argc, char** argv) {
                     if (read_bytes == 0) { // 客户端关闭
                         Close(clients[i].fd);
                         clients[i].fd = -1; // 在poll中取消监听某个fd 直接在监听数组中设为-1即可
-                        printf("client closed    -- ip : %s port : %d\n", 
-                            inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip, sizeof(client_ip)),
-                            ntohs(client_addr.sin_port)
-                        );
+                        printf("client closed\n");
                     } else if (read_bytes > 0) {
                         Write(STDOUT_FILENO, buf, read_bytes);
                         for (int j = 0; j < read_bytes; ++ j) {
@@ -102,10 +99,7 @@ int main(int argc, char** argv) {
                         if (errno == ECONNRESET) { // 收到RST 连接被重置
                             Close(clients[i].fd);
                             clients[i].fd = -1;
-                            printf("client reset     -- ip : %s port : %d\n", 
-                                inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip, sizeof(client_ip)),
-                                ntohs(client_addr.sin_port)
-                            );
+                            printf("client reset\n");
                         } else {
                             perr_exit("read error");
                         }
