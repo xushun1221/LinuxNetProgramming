@@ -17,27 +17,27 @@
 #include <time.h>
 
 #define MAX_EVENTS 1024     // 监听数量上限
-#define MAX_BUFSIZE 4096
-#define SERV_PORT 8888
+#define MAX_BUFSIZE 4096    // buf大小
+#define SERV_PORT 8888      // 监听端口
 
 void recvdata(int fd, int events, void* arg);
 void senddata(int fd, int events, void* arg);
 
-// 描述监听文件描述符相关信息
+// 描述监听文件描述符相关信息  epoll_event.data.ptr 指向该结构体
 struct myevent_s {
     int fd;                 // 要监听的文件描述符
-    int events;             // 对应的监听事件
+    int events;             // 对应的监听事件 EPOLLIN EPOLLOUT
     void* arg;              // 泛型参数
     void (*call_back)(int fd, int events, void* arg);
-                            // 回调函数
-    int status;             // 是否正在被监听 1 - 在监听树上 0 - 不在监听树上
+                            // 回调函数 由fd类型和监听事件决定回调函数的类型
+    int status;             // 是否正在被监听 1-在监听树上 0-不在监听树上
     char buf[MAX_BUFSIZE];
     int len;
     long last_active;       // 记录上次活动时间 即加入监听树的时间
 };
 
-int g_epfd;
-struct myevent_s g_events[MAX_EVENTS + 1];
+int g_epfd; // 全局监听树
+struct myevent_s g_events[MAX_EVENTS + 1]; // 全局fd描述信息数组 保存需要监听的fd和相关信息
 
 // 初始化struct myevent_s成员变量
 void eventset(struct myevent_s* ev, int fd, void (*call_back)(int, int, void*), void* arg) {
@@ -46,22 +46,25 @@ void eventset(struct myevent_s* ev, int fd, void (*call_back)(int, int, void*), 
     ev -> events = 0;
     ev -> arg = arg;
     ev -> status = 0;
-    memset(ev -> buf, 0, sizeof(ev -> buf));
-    ev -> len = 0;
-    ev -> last_active = time(NULL);
+    if (call_back != senddata) {
+        memset(ev -> buf, 0, sizeof(ev -> buf));
+        ev -> len = 0;
+    }
+    ev -> last_active = time(NULL); // 初始值为当前时间
     return;
 }
 
 // 向监听树中添加一个文件描述符
 void eventadd(int epfd, int events, struct myevent_s* ev) {
-    struct epoll_event epev = {0, {0}};
+    struct epoll_event epev = {0, {0}}; // 初始化一个epoll_event (events = 0, data = {0})
+    // 给这个fd添加信息
     epev.data.ptr = ev;
     epev.events = ev -> events = events;
 
     int op;
     if (ev -> status == 0) {
         op = EPOLL_CTL_ADD;
-        ev -> status = 1;
+        ev -> status = 1; // 修改监听状态
     }
 
     if (epoll_ctl(epfd, op, ev -> fd, &epev) < 0) {
@@ -72,6 +75,7 @@ void eventadd(int epfd, int events, struct myevent_s* ev) {
     return;
 }
 
+// 从监听树中删除一个文件描述符
 void eventdel(int epfd, struct myevent_s* ev) {
     struct epoll_event epv = {0, {0}};
 
@@ -88,9 +92,9 @@ void eventdel(int epfd, struct myevent_s* ev) {
 }
 
 void recvdata(int fd, int events, void* arg) {
-    struct myevent_s *ev = (struct myevent_s*)arg;
+    struct myevent_s *ev = (struct myevent_s*)arg; // arg参数是fd的描述信息myevent_s
+    
     int len;
-
     len = recv(fd, ev -> buf, sizeof(ev -> buf), 0); // 读文件描述符 数据存入myevent_s 成员buf中
 
     eventdel(g_epfd, ev); // 该节点从监听树上摘下
@@ -115,8 +119,8 @@ void recvdata(int fd, int events, void* arg) {
 
 void senddata(int fd, int events, void* arg) {
     struct myevent_s* ev = (struct myevent_s*)arg;
+    
     int len;
-
     len = send(fd, ev -> buf, ev -> len, 0); // 直接将数据写回给客户端 未作处理 
 
     eventdel(g_epfd, ev); // 从监听树中摘下fd
